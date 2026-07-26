@@ -77,7 +77,7 @@ function levenshteinDistance(a: string, b: string): number {
   return dp[m][n];
 }
 
-function isMatch(a: string, b: string): boolean {
+export function isMatch(a: string, b: string): boolean {
   if (a === b) return true;
   // Allow 1 edit for short words (< 5 chars), 2 edits for longer
   const maxDist = Math.max(a.length, b.length) >= 5 ? 2 : 1;

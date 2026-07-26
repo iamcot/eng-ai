@@ -16,6 +16,7 @@ model User {
   sessions        ExerciseSession[]
   tokenUsages     TokenUsage[]
   readingAttempts ReadingAttempt[]
+  vocabWords      VocabWord[]
 }
 
 model UserSettings {
@@ -45,11 +46,38 @@ model ReadingAttempt {
   passageId   String
   passage     Passage  @relation(fields: [passageId], references: [id], onDelete: Cascade)
   score       Float
-  resultJson  String?  // JSON of WordResult[] for replay
+  resultJson  String?
   completedAt DateTime @default(now())
 
   @@index([userId])
   @@index([userId, passageId])
+}
+
+model VocabWord {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word            String
+  exampleSentence String?
+  addedAt         DateTime       @default(now())
+  nextReviewAt    DateTime       @default(now())
+  interval        Int            @default(1)
+  easeFactor      Float          @default(2.5)
+  attempts        VocabAttempt[]
+
+  @@unique([userId, word])
+  @@index([userId])
+  @@index([userId, nextReviewAt])
+}
+
+model VocabAttempt {
+  id          String    @id @default(cuid())
+  wordId      String
+  word        VocabWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  correct     Boolean
+  attemptedAt DateTime  @default(now())
+
+  @@index([wordId])
 }
 
 model ExerciseSession {

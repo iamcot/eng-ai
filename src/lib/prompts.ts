@@ -99,3 +99,15 @@ export function trimConversationHistory(
   // Keep last maxTurns * 2 messages (each turn = 1 user + 1 assistant)
   return history.slice(-(maxTurns * 2));
 }
+
+export function buildVocabExamplePrompt(
+  word: string,
+  level: Level
+): { system: string; user: string } {
+  return {
+    system: `You are an English teacher creating example sentences for vocabulary practice.
+Write a single natural sentence (10-20 words) using the given word, appropriate for ${level} level (${LEVEL_DESCRIPTIONS[level]}).
+Return ONLY the sentence — no markdown, no quotes, no explanation.`,
+    user: `Write an example sentence using the word: ${word}`,
+  };
+}

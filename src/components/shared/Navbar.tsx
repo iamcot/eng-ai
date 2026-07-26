@@ -53,6 +53,7 @@ export function Navbar({ username }: { username: string }) {
     { href: "/dashboard", label: "Home" },
     { href: "/reading", label: "📖 Reading" },
     { href: "/conversation", label: "💬 Conversation" },
+    { href: "/vocabulary", label: "📚 Vocabulary" },
   ];
 
   return (

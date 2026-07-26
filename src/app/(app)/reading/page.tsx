@@ -70,6 +70,19 @@ export default function ReadingPage() {
         }),
       }).catch(() => {});
     }
+
+    // Auto-add wrong words to vocab bank
+    const wrongWords = result.words
+      .filter(w => w.status === "wrong")
+      .map(w => w.word.toLowerCase().replace(/[^a-z]/g, "").trim())
+      .filter(Boolean);
+    if (wrongWords.length > 0) {
+      fetch("/api/vocab/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ words: wrongWords }),
+      }).catch(() => {});
+    }
   }, [updateScore]);
 
   const handleInterim = useCallback((interim: string) => {
