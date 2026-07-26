@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+
+  settings        UserSettings?
+  sessions        ExerciseSession[]
+  tokenUsages     TokenUsage[]
+  readingAttempts ReadingAttempt[]
+}
+
+model UserSettings {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentLevel    String   @default("B1")
+  preferredTopics String   @default("[]")
+  updatedAt       DateTime @updatedAt
+}
+
+model Passage {
+  id        String   @id @default(cuid())
+  text      String
+  level     String
+  topic     String
+  createdAt DateTime @default(now())
+
+  attempts ReadingAttempt[]
+
+  @@index([level, topic])
+}
+
+model ReadingAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passageId   String
+  passage     Passage  @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  score       Float
+  resultJson  String?  // JSON of WordResult[] for replay
+  completedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, passageId])
+}
+
+model ExerciseSession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String
+  level       String
+  topic       String
+  score       Float?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  turns ConversationTurn[]
+
+  @@index([userId])
+}
+
+model ConversationTurn {
+  id                 String          @id @default(cuid())
+  sessionId          String
+  session            ExerciseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role               String
+  content            String
+  detectedSpeech     String?
+  pronunciationScore Float?
+
+  @@index([sessionId])
+}
+
+model TokenUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint     String
+  inputTokens  Int
+  outputTokens Int
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
