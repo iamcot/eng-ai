@@ -12,6 +12,7 @@ import { ScoreCard } from "@/components/reading/ScoreCard";
 import { PassageHistory } from "@/components/reading/PassageHistory";
 import { BrowserSupportCheck } from "@/components/shared/BrowserSupport";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { usePassageHistory, PassageEntry } from "@/hooks/usePassageHistory";
 import { compareTexts, ComparisonResult, WordResult, normalizeText } from "@/lib/textComparison";
 import { LEVELS, READING_TOPICS } from "@/lib/prompts";
@@ -39,6 +40,7 @@ export default function ReadingPage() {
   const passageWordCountRef = useRef(0);
   const accumulatedRef = useRef("");
   const stopRef = useRef<() => void>(() => {});
+  const stopAudioRef = useRef<() => void>(() => {});
   const activePassageIdRef = useRef<string | null>(null); // DB passageId
   const levelRef = useRef(level);
   const topicRef = useRef(topic);
@@ -83,6 +85,10 @@ export default function ReadingPage() {
     const p = passageRef.current;
     if (!p) return;
     accumulatedRef.current = (accumulatedRef.current + " " + text).trim();
+
+    // Record timestamps for words in this STT result
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    addWordTimestamps(words, performance.now());
     const result = compareTexts(p, accumulatedRef.current);
     setLiveComparison(result);
     setInterimDisplay("");
@@ -94,14 +100,18 @@ export default function ReadingPage() {
     if (attempted >= total) {
       console.log("[Reading] all words covered, auto-stopping");
       finalize(accumulatedRef.current);
-      stopRef.current();
+      stopRef.current();     // stop STT
+      stopAudioRef.current(); // stop audio recording
     }
   }, [finalize]);
+
+  const { audioUrl, startRecording, stopRecording, clearRecording, addWordTimestamps, playWordClip } = useAudioRecorder();
 
   const { state, isSupported, interimTranscript, errorMessage, startListening, stopListening, resetTranscript } =
     useSpeechRecognition({ onInterimTranscript: handleInterim, onFinalTranscript: handleFinal, lang: "en-US", continuous: true });
 
   stopRef.current = stopListening;
+  stopAudioRef.current = stopRecording;
   const isRecording = state === "listening";
 
   async function generatePassage() {
@@ -165,26 +175,32 @@ export default function ReadingPage() {
     resetTranscript();
   }
 
-  function handleStartRecording() {
+  async function handleStartRecording() {
     accumulatedRef.current = "";
     setComparison(null);
     setLiveComparison(null);
     setInterimDisplay("");
+    clearRecording();
     resetTranscript();
+    await startRecording();
+    console.log("[Reading] audio recording started");
     startListening();
   }
 
   function handleStopRecording() {
     stopListening();
+    stopRecording();
+    console.log("[Reading] audio recording stopped, audioUrl will be set async");
     if (accumulatedRef.current.trim()) finalize(accumulatedRef.current);
   }
 
   function handleReset() {
-    if (isRecording) stopListening();
+    if (isRecording) { stopListening(); stopRecording(); }
     accumulatedRef.current = "";
     setComparison(null);
     setLiveComparison(null);
     setInterimDisplay("");
+    // Don't clear recording — keep audio for playback until user starts new recording
     resetTranscript();
   }
 
@@ -220,7 +236,7 @@ export default function ReadingPage() {
 
             {passage && (
               <>
-                <PassageDisplay passage={passage} wordResults={displayComparison?.words ?? null} isRecording={isRecording} />
+                <PassageDisplay passage={passage} wordResults={displayComparison?.words ?? null} isRecording={isRecording} hasRecording={!!audioUrl} onPlayWordClip={(idx) => playWordClip(idx, passage.split(/\s+/).filter(Boolean))} />
 
                 <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700 min-h-[2.25rem] flex items-center">
                   {isRecording ? (
@@ -242,6 +258,18 @@ export default function ReadingPage() {
                     <Button variant="secondary" onClick={handleReset}>Try Again</Button>
                   )}
                 </div>
+
+                {/* Playback — show right after controls */}
+                {audioUrl && !isRecording && (
+                  <div className="flex flex-col gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span>🎙</span>
+                      <span className="font-medium">Your recording</span>
+                      <span className="text-xs text-gray-400">— click a red word to hear that part</span>
+                    </div>
+                    <audio controls src={audioUrl} className="w-full h-8" />
+                  </div>
+                )}
 
                 {comparison && !isRecording && <ScoreCard result={comparison} />}
               </>

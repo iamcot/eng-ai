@@ -52,8 +52,10 @@ export async function POST(req: Request) {
       messages: [{ role: "user", content: user }],
     });
 
-    const text =
+    const raw =
       message.content[0].type === "text" ? message.content[0].text.trim() : "";
+    // Strip markdown headings (e.g. "# Title\n\n") that Claude sometimes adds
+    const text = raw.replace(/^#+\s+[^\n]*\n+/, "").trim();
 
     await saveTokenUsage(userId, "passages/generate", message.usage.input_tokens, message.usage.output_tokens);
 

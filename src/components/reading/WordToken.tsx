@@ -6,9 +6,11 @@ import { WordTooltip } from "./WordTooltip";
 
 interface WordTokenProps {
   result: WordResult;
+  wordIndex?: number;
+  onPlayClip?: (wordIndex: number) => void;
 }
 
-export function WordToken({ result }: WordTokenProps) {
+export function WordToken({ result, wordIndex, onPlayClip }: WordTokenProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
 
@@ -38,8 +40,10 @@ export function WordToken({ result }: WordTokenProps) {
           {showTooltip && (
             <WordTooltip
               word={result.word}
+              transcribedWord={result.transcribedWord}
               anchorRef={anchorRef}
               onClose={() => setShowTooltip(false)}
+              onPlayMyVoice={onPlayClip && wordIndex !== undefined ? () => { console.log("[WordToken] play clip at index", wordIndex, "onPlayClip=", !!onPlayClip); onPlayClip(wordIndex); } : undefined}
             />
           )}
         </span>
