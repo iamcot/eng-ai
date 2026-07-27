@@ -177,7 +177,7 @@ export default function ConversationPage() {
     accumulatedSpeechRef.current = (accumulatedSpeechRef.current + " " + text).trim();
   }, []);
 
-  const { state, isSupported, interimTranscript, errorMessage, startListening, stopListening, resetTranscript } =
+  const { state, isSupported, interimTranscript, finalTranscript, errorMessage, startListening, stopListening, resetTranscript } =
     useSpeechRecognition({ onFinalTranscript: handleFinalTranscript, lang: "en-US", continuous: true });
 
   const isRecording = state === "listening";
@@ -330,7 +330,12 @@ export default function ConversationPage() {
                   }}
                   onStop={() => {
                     stopListening();
-                    const speech = accumulatedSpeechRef.current.trim();
+                    // Use accumulated, fallback to finalTranscript, then interimTranscript
+                    const speech = (
+                      accumulatedSpeechRef.current ||
+                      finalTranscript ||
+                      interimTranscript
+                    ).trim();
                     accumulatedSpeechRef.current = "";
                     if (speech) submitSpeech(speech);
                   }}
