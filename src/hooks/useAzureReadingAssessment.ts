@@ -107,22 +107,34 @@ export function useAzureReadingAssessment(passage: string) {
     // Clear ref immediately so nothing else can double-close
     recognizerRef.current = null;
 
-    // close() is synchronous and reliable; stopContinuousRecognitionAsync hangs
-    try { recognizer.close(); } catch { /* ignore */ }
+    const finalize = (() => {
+      let done = false;
+      return () => {
+        if (done) return;
+        done = true;
+        try { recognizer.close(); } catch { /* ignore */ }
+        const wordScores = alignToPassage(passage, chunksRef.current);
+        const scored = wordScores.filter(w => w.errorType !== "Omission");
+        const avg = (arr: AzureWordScore[]) =>
+          arr.length === 0 ? 0 : Math.round(arr.reduce((s, w) => s + w.accuracyScore, 0) / arr.length);
+        setResult({
+          wordScores,
+          pronunciationScore: avg(scored),
+          fluencyScore: 0,
+          completenessScore: wordScores.length === 0 ? 0 : Math.round((scored.length / wordScores.length) * 100),
+          accuracyScore: avg(scored),
+        });
+        setStatus("done");
+      };
+    })();
 
-    const wordScores = alignToPassage(passage, chunksRef.current);
-    const scored = wordScores.filter(w => w.errorType !== "Omission");
-    const avg = (arr: AzureWordScore[]) =>
-      arr.length === 0 ? 0 : Math.round(arr.reduce((s, w) => s + w.accuracyScore, 0) / arr.length);
-
-    setResult({
-      wordScores,
-      pronunciationScore: avg(scored),
-      fluencyScore: 0,
-      completenessScore: wordScores.length === 0 ? 0 : Math.round((scored.length / wordScores.length) * 100),
-      accuracyScore: avg(scored),
-    });
-    setStatus("done");
+    // Graceful stop — lets Azure flush remaining buffered audio before closing
+    // Fallback close() after 4s in case stopContinuousRecognitionAsync hangs
+    const fallback = setTimeout(finalize, 4000);
+    recognizer.stopContinuousRecognitionAsync(
+      () => { clearTimeout(fallback); finalize(); },
+      () => { clearTimeout(fallback); finalize(); }
+    );
   }, [passage]);
 
   const reset = useCallback(() => {
