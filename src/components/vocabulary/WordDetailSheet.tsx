@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { isMatch, normalizeText } from "@/lib/textComparison";
+import { useAzurePronunciation } from "@/hooks/useAzurePronunciation";
+import { speakText } from "@/lib/azureTts";
 
 interface VocabWord {
   id: string;
@@ -34,14 +34,14 @@ function useIPA(word: string) {
       .then(r => r.json())
       .then(json => {
         clearTimeout(t);
-        const pages = (json as { query?: { pages?: Record<string, { revisions?: { slots?: { main?: { "*"?: string } }; "*"?: string }[] }> } })?.query?.pages ?? {};
+        const pages = (json as { query?: { pages?: Record<string, { revisions?: { slots?: { main?: { "*"?: string } } }[] }> } })?.query?.pages ?? {};
         const pageId = Object.keys(pages)[0];
         if (!pageId || pageId === "-1") { setIpa(null); return; }
         const rev = pages[pageId]?.revisions?.[0];
-        const wikitext = rev?.slots?.main?.["*"] ?? rev?.["*"] ?? "";
-        const enSection = wikitext.match(/==English==([\s\S]*?)(?:==\w|\s*$)/)?.[1] ?? wikitext;
-        const m = enSection.match(/\{\{IPA[^}]*\|([/\[][^|}]+[/\]])/);
-        setIpa(m?.[1]?.trim() ?? null);
+        const wikitext = rev?.slots?.main?.["*"] ?? "";
+        const enSection = wikitext.match(/==English==([\s\S]*?)(?:\n==[^=]|$)/)?.[1] ?? wikitext;
+        const m = enSection.match(/\{\{IPA\|en\|\/([^/|{}\n]{1,50})\//);
+        setIpa(m?.[1] ? `/${m[1].replace(/ɹ/g, "r")}/` : null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -49,25 +49,29 @@ function useIPA(word: string) {
   return { ipa, loading };
 }
 
-function speak(text: string, slow = false) {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  u.rate = slow ? 0.65 : 0.9;
-  window.speechSynthesis.speak(u);
+function ScoreBadge({ score }: { score: number }) {
+  const color = score >= 85 ? "bg-green-100 text-green-700 border-green-200"
+    : score >= 70 ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+    : "bg-red-100 text-red-700 border-red-200";
+  const label = score >= 85 ? "Tốt lắm! 🎉" : score >= 70 ? "Khá ổn" : "Cần luyện thêm";
+  return (
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${color}`}>
+      <span className="text-lg font-bold">{score}</span>
+      <span>/100 — {label}</span>
+    </div>
+  );
 }
+
+const IPA_FONT = { fontFamily: "var(--font-noto-sans), 'Segoe UI', sans-serif" };
 
 export function WordDetailSheet({ word, userLevel, onClose, onAttempt }: WordDetailSheetProps) {
   const [sentence, setSentence] = useState<string | null>(word.exampleSentence);
   const [loadingSentence, setLoadingSentence] = useState(false);
-  const [heardWord, setHeardWord] = useState("");
-  const [result, setResult] = useState<"correct" | "wrong" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const { ipa, loading: ipaLoading } = useIPA(word.word);
+  const az = useAzurePronunciation(word.word);
 
-  // Fetch sentence if not cached
   useEffect(() => {
     if (word.exampleSentence || sentence) return;
     setLoadingSentence(true);
@@ -78,19 +82,6 @@ export function WordDetailSheet({ word, userLevel, onClose, onAttempt }: WordDet
       .finally(() => setLoadingSentence(false));
   }, [word, userLevel, sentence]);
 
-  const handleFinal = (text: string) => {
-    const words = normalizeText(text).split(" ").filter(Boolean);
-    const matched = words.some(w => isMatch(word.word, w));
-    setHeardWord(text.trim());
-    setResult(matched ? "correct" : "wrong");
-    stopListening();
-  };
-
-  const { state, startListening, stopListening, resetTranscript, interimTranscript } =
-    useSpeechRecognition({ onFinalTranscript: handleFinal, lang: "en-US", continuous: false });
-
-  const isListening = state === "listening";
-
   async function submitAttempt(correct: boolean) {
     setSubmitting(true);
     await fetch("/api/vocab/attempt", {
@@ -100,10 +91,13 @@ export function WordDetailSheet({ word, userLevel, onClose, onAttempt }: WordDet
     }).catch(() => {});
     onAttempt(word.id, correct);
     setSubmitting(false);
-    setResult(null);
-    setHeardWord("");
-    resetTranscript();
+    az.reset();
   }
+
+  const isListening = az.status === "listening" || az.status === "initializing";
+  const isDone = az.status === "done";
+  const score = az.score ?? 0;
+  const isGood = isDone && score >= 70;
 
   return (
     <div
@@ -117,15 +111,14 @@ export function WordDetailSheet({ word, userLevel, onClose, onAttempt }: WordDet
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-bold text-gray-900">{word.word}</h2>
-              <button onClick={() => speak(word.word)} className="text-gray-400 hover:text-blue-600 text-xl" title="Normal speed">🔊</button>
-              <button onClick={() => speak(word.word, true)} className="text-gray-400 hover:text-blue-600 text-lg" title="Slow">🐢</button>
+              <button onClick={() => speakText(word.word)} className="text-gray-400 hover:text-blue-600 text-xl" title="Nghe">🔊</button>
+              <button onClick={() => speakText(word.word, "en-US-JennyNeural", "0.6")} className="text-gray-400 hover:text-blue-600 text-lg" title="Chậm">🐢</button>
             </div>
-            {/* IPA */}
             <div className="h-5 flex items-center">
               {ipaLoading ? (
                 <Spinner size="sm" />
               ) : ipa ? (
-                <span className="text-gray-500 font-mono text-sm">{ipa}</span>
+                <span className="text-gray-500 text-sm" style={IPA_FONT}>{ipa}</span>
               ) : (
                 <span className="text-gray-300 text-xs italic">no phonetic</span>
               )}
@@ -153,53 +146,53 @@ export function WordDetailSheet({ word, userLevel, onClose, onAttempt }: WordDet
 
         {/* Practice section */}
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium text-gray-700">Practice pronunciation:</p>
+          <p className="text-sm font-medium text-gray-700">Luyện phát âm:</p>
 
-          {/* Mic button */}
           <div className="flex items-center gap-4">
             <button
               onClick={() => {
-                if (isListening) { stopListening(); return; }
-                setResult(null); setHeardWord(""); resetTranscript();
-                startListening();
+                if (isListening) { az.stop(); return; }
+                az.reset();
+                az.start();
               }}
+              disabled={isDone}
               className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white text-xl shadow transition-colors ${
-                isListening ? "bg-red-600 animate-pulse" : "bg-blue-600 hover:bg-blue-700"
+                isListening ? "bg-red-600 animate-pulse" : isDone ? "bg-gray-300" : "bg-blue-600 hover:bg-blue-700"
               }`}
-              title={isListening ? "Stop" : "Speak"}
+              title={isListening ? "Dừng" : "Nói"}
             >
               {isListening ? "⏹" : "🎤"}
             </button>
+
             <div className="flex-1 text-sm">
-              {isListening ? (
-                <span className="text-blue-600">{interimTranscript || <span className="italic">Listening…</span>}</span>
-              ) : result === null ? (
-                <span className="text-gray-400">Tap the mic and say the word</span>
-              ) : (
-                <div className={`rounded-lg px-3 py-2 ${result === "correct" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                  <span className="font-medium">{result === "correct" ? "✅ Correct!" : "❌ Not quite"}</span>
-                  {heardWord && <span className="ml-1 text-sm">— heard: "{heardWord}"</span>}
-                </div>
-              )}
+              {az.status === "initializing" && <span className="text-blue-500 italic">Đang khởi động…</span>}
+              {az.status === "listening" && <span className="text-blue-600 animate-pulse">Đang nghe…</span>}
+              {az.status === "processing" && <span className="text-blue-500 italic">Đang phân tích…</span>}
+              {az.status === "idle" && <span className="text-gray-400">Nhấn mic và đọc từ</span>}
+              {az.status === "error" && <span className="text-red-500 text-xs">Lỗi — thử lại</span>}
+              {isDone && az.score !== null && <ScoreBadge score={az.score} />}
             </div>
           </div>
 
-          {/* Rate buttons */}
-          {result !== null && (
-            <div className="flex gap-2">
+          {isDone && (
+            <div className="flex gap-2 flex-wrap">
+              {!isGood && (
+                <Button variant="secondary" size="sm" onClick={() => az.reset()} disabled={submitting}>
+                  🔄 Đọc lại
+                </Button>
+              )}
               <Button variant="danger" size="sm" className="flex-1" onClick={() => submitAttempt(false)} disabled={submitting}>
-                😓 Hard — review soon
+                😓 Khó — ôn sớm
               </Button>
               <Button variant="primary" size="sm" className="flex-1" onClick={() => submitAttempt(true)} disabled={submitting} isLoading={submitting}>
-                😊 Easy — got it!
+                😊 Dễ — nhớ rồi!
               </Button>
             </div>
           )}
         </div>
 
-        {/* SR info */}
         <p className="text-xs text-gray-400 text-center">
-          Current interval: {word.interval} day{word.interval !== 1 ? "s" : ""}
+          Ôn tập sau: {word.interval} ngày
         </p>
       </div>
     </div>
