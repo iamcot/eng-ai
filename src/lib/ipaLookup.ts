@@ -75,7 +75,7 @@ function extractIPAFromWikitext(json: any): string | null {
 
     const m = enSection.match(/\{\{IPA\|en\|\/([^/|{}\n]{1,50})\//);
     console.log("[IPA] regex match:", m?.[0], "→ captured:", m?.[1]);
-    if (m?.[1]) return `/${m[1]}/`;
+    if (m?.[1]) return `/${m[1].replace(/ɹ/g, "r")}/`;
   } catch (e) { console.error("[IPA] error:", e); }
   return null;
 }
