@@ -180,7 +180,7 @@ export function SoundCard({
             <button
               onClick={handleReload}
               disabled={isBusy}
-              className="text-gray-300 hover:text-blue-500 disabled:opacity-30 transition-colors text-sm leading-none shrink-0"
+              className="text-gray hover:text-blue-500 disabled:opacity-30 transition-colors text-sm leading-none shrink-0"
               title="Từ khác"
             >
               ↻
