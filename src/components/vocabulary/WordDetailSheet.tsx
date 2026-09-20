@@ -28,14 +28,20 @@ function useIPA(word: string) {
     setIpa(null);
     setLoading(true);
     const clean = word.toLowerCase().replace(/[^a-z]/g, "");
-    fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${clean}`)
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 4000);
+    fetch(`https://en.wiktionary.org/w/api.php?action=query&titles=${clean}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*`, { signal: controller.signal })
       .then(r => r.json())
       .then(json => {
-        const found =
-          json?.[0]?.phonetic ||
-          json?.[0]?.phonetics?.find((p: { text?: string }) => p.text)?.text ||
-          null;
-        setIpa(found);
+        clearTimeout(t);
+        const pages = (json as { query?: { pages?: Record<string, { revisions?: { slots?: { main?: { "*"?: string } }; "*"?: string }[] }> } })?.query?.pages ?? {};
+        const pageId = Object.keys(pages)[0];
+        if (!pageId || pageId === "-1") { setIpa(null); return; }
+        const rev = pages[pageId]?.revisions?.[0];
+        const wikitext = rev?.slots?.main?.["*"] ?? rev?.["*"] ?? "";
+        const enSection = wikitext.match(/==English==([\s\S]*?)(?:==\w|\s*$)/)?.[1] ?? wikitext;
+        const m = enSection.match(/\{\{IPA[^}]*\|([/\[][^|}]+[/\]])/);
+        setIpa(m?.[1]?.trim() ?? null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));

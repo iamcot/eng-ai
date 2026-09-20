@@ -11,10 +11,10 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {name}! 👋
+          Chào mừng trở lại, {name}! 👋
         </h1>
         <p className="mt-1 text-gray-600">
-          Choose an exercise to practice your English speaking skills.
+          Chọn bài tập để luyện kỹ năng nói tiếng Anh.
         </p>
       </div>
 
@@ -22,40 +22,28 @@ export default async function DashboardPage() {
         <Link href="/reading">
           <Card className="cursor-pointer transition-shadow hover:shadow-md">
             <div className="text-3xl mb-3">📖</div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Reading Practice
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">Luyện đọc</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Read a passage aloud and get instant feedback on your
-              pronunciation. Words are highlighted as you speak.
+              Đọc to đoạn văn và nhận phản hồi tức thì về phát âm. Từng từ được highlight khi bạn đọc.
             </p>
-            <div className="mt-4 text-sm font-medium text-blue-600">
-              Start reading →
-            </div>
+            <div className="mt-4 text-sm font-medium text-blue-600">Bắt đầu đọc →</div>
           </Card>
         </Link>
 
         <Link href="/conversation">
           <Card className="cursor-pointer transition-shadow hover:shadow-md">
             <div className="text-3xl mb-3">💬</div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Conversation Practice
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">Luyện hội thoại</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Have a real conversation with an AI character in various
-              scenarios. Practice speaking naturally.
+              Trò chuyện thật sự với nhân vật AI trong nhiều tình huống. Luyện nói tiếng Anh tự nhiên.
             </p>
-            <div className="mt-4 text-sm font-medium text-blue-600">
-              Start talking →
-            </div>
+            <div className="mt-4 text-sm font-medium text-blue-600">Bắt đầu nói →</div>
           </Card>
         </Link>
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">
-          📊 API Usage
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">📊 Thống kê API</h2>
         <UsageStats />
       </div>
     </div>

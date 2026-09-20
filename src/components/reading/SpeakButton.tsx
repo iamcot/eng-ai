@@ -19,10 +19,10 @@ export function SpeakButton({ text, disabled }: SpeakButtonProps) {
     <button
       onClick={speak}
       disabled={disabled}
-      title="Listen to passage"
-      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      title="Nghe đoạn văn"
+      className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
     >
-      🔊 <span>Listen</span>
+      🔊 <span>Nghe</span>
     </button>
   );
 }

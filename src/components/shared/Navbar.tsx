@@ -50,10 +50,11 @@ export function Navbar({ username }: { username: string }) {
   const pathname = usePathname();
 
   const navLinks = [
-    { href: "/dashboard", label: "Home" },
-    { href: "/reading", label: "📖 Reading" },
-    { href: "/conversation", label: "💬 Conversation" },
-    { href: "/vocabulary", label: "📚 Vocabulary" },
+    { href: "/dashboard", label: "Trang chủ" },
+    { href: "/reading", label: "📖 Luyện đọc" },
+    { href: "/conversation", label: "💬 Hội thoại" },
+    { href: "/vocabulary", label: "📚 Từ vựng" },
+    { href: "/phonics", label: "🔤 Phát âm" },
   ];
 
   return (
@@ -89,7 +90,7 @@ export function Navbar({ username }: { username: string }) {
             size="sm"
             onClick={() => signOut({ callbackUrl: "/login" })}
           >
-            Sign out
+            Đăng xuất
           </Button>
         </div>
       </div>

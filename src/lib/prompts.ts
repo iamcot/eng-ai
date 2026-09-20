@@ -44,7 +44,7 @@ export function buildPassagePrompt(
     system: `You are an English language teaching assistant creating reading passages for pronunciation practice.
 The learner is at ${level} level (${LEVEL_DESCRIPTIONS[level]}).
 Requirements:
-- Length: exactly 100-150 words
+- Length: exactly 50-80 words
 - Use natural, flowing prose (not a list)
 - Vocabulary and grammar must match the ${level} level exactly
 - Avoid rare words or very unusual proper nouns (hard to pronounce)

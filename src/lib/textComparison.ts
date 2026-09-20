@@ -4,6 +4,8 @@ export interface WordResult {
   word: string;
   status: WordStatus;
   transcribedWord?: string;
+  accuracyScore?: number; // 0-100 from Azure pronunciation assessment
+  phonemes?: { phoneme: string; score: number; actual?: string }[];
 }
 
 export interface ComparisonResult {
@@ -161,7 +163,7 @@ export function compareTexts(
   const totalCount   = result.filter((r) => r.status !== "pending").length;
   const score = totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100);
 
-  console.log(`[compare] frontier=${origIdx}/${origNorm.length}, correct=${correctCount}, wrong=${result.filter(r=>r.status==="wrong").length}, missed=${result.filter(r=>r.status==="missed").length}, pending=${result.filter(r=>r.status==="pending").length}`);
+  // console.log(`[compare] frontier=${origIdx}/${origNorm.length}, correct=${correctCount}, wrong=${result.filter(r=>r.status==="wrong").length}, missed=${result.filter(r=>r.status==="missed").length}, pending=${result.filter(r=>r.status==="pending").length}`);
 
   return { words: result, score, correctCount, totalCount };
 }

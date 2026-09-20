@@ -39,7 +39,7 @@ export function PassageHistory({ history, activeId, onSelect, onDelete }: Passag
   const [expandedAttempts, setExpandedAttempts] = useState<Set<string>>(new Set());
 
   if (history.length === 0) {
-    return <div className="text-xs text-gray-400 text-center py-4">No passages yet</div>;
+    return <div className="text-xs text-gray-400 text-center py-4">Chưa có bài đọc nào</div>;
   }
 
   function toggleAttempts(passageId: string) {
@@ -78,7 +78,7 @@ export function PassageHistory({ history, activeId, onSelect, onDelete }: Passag
                   <button
                     className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 hover:text-red-500 transition-opacity ml-1"
                     onClick={(e) => { e.stopPropagation(); onDelete(entry.passageId); }}
-                    title="Remove"
+                    title="Xóa"
                   >✕</button>
                 </div>
               </div>
@@ -96,7 +96,7 @@ export function PassageHistory({ history, activeId, onSelect, onDelete }: Passag
                     className="text-xs text-blue-500 hover:text-blue-700"
                     onClick={(e) => { e.stopPropagation(); toggleAttempts(entry.passageId); }}
                   >
-                    {entry.attempts.length} attempt{entry.attempts.length > 1 ? "s" : ""} {showAttempts ? "▲" : "▼"}
+                    {entry.attempts.length} lần thử {showAttempts ? "▲" : "▼"}
                   </button>
                 )}
               </div>
@@ -105,7 +105,7 @@ export function PassageHistory({ history, activeId, onSelect, onDelete }: Passag
             {/* Previous attempts section */}
             {showAttempts && hasAttempts && (
               <div className="ml-2 border-l-2 border-blue-100 pl-2 flex flex-col mt-0.5">
-                <p className="text-xs font-medium text-gray-500 px-2 py-1">Previous attempts</p>
+                <p className="text-xs font-medium text-gray-500 px-2 py-1">Lần trước</p>
                 {entry.attempts.map((attempt) => (
                   <AttemptItem
                     key={attempt.id}

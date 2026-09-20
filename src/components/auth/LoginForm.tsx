@@ -26,7 +26,7 @@ export function LoginForm() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Invalid username or password");
+      setError("Tên đăng nhập hoặc mật khẩu không đúng");
     } else {
       router.push("/dashboard");
       router.refresh();
@@ -41,7 +41,7 @@ export function LoginForm() {
         </div>
       )}
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-700">Username</label>
+        <label className="text-sm font-medium text-gray-700">Tên đăng nhập</label>
         <input
           type="text"
           value={username}
@@ -52,7 +52,7 @@ export function LoginForm() {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-700">Password</label>
+        <label className="text-sm font-medium text-gray-700">Mật khẩu</label>
         <input
           type="password"
           value={password}
@@ -63,7 +63,7 @@ export function LoginForm() {
         />
       </div>
       <Button type="submit" isLoading={loading} size="lg" className="mt-2">
-        Sign In
+        Đăng nhập
       </Button>
     </form>
   );

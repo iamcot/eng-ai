@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { fetchWordIPA } from "@/lib/ipaLookup";
 
 interface PhoneticData {
   passage: string | null;
@@ -21,37 +22,31 @@ interface DiffChar {
   match: boolean;
 }
 
-// Fetch and extract IPA for a single word
-async function fetchIPA(word: string): Promise<string | null> {
-  const clean = word.toLowerCase().replace(/[^a-z]/g, "");
-  if (!clean) return null;
-  try {
-    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${clean}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    return (
-      json?.[0]?.phonetic ||
-      json?.[0]?.phonetics?.find((p: { text?: string }) => p.text)?.text ||
-      null
-    );
-  } catch {
-    return null;
-  }
-}
-
 function usePhonetics(word: string, transcribedWord?: string): PhoneticData {
   const [data, setData] = useState<PhoneticData>({ passage: null, transcribed: null, loading: true });
 
   useEffect(() => {
     setData({ passage: null, transcribed: null, loading: true });
 
-    const fetches: Promise<string | null>[] = [fetchIPA(word)];
-    if (transcribedWord) fetches.push(fetchIPA(transcribedWord));
+    // Never hang more than 5 seconds
+    const bail = setTimeout(() => {
+      setData(prev => ({ ...prev, loading: false }));
+    }, 5000);
 
-    Promise.all(fetches).then(([passage, transcribed = null]) => {
-      console.log("[Tooltip] IPA result:", { word, transcribedWord, passage, transcribed });
-      setData({ passage, transcribed, loading: false });
-    });
+    const fetches: Promise<string | null>[] = [fetchWordIPA(word)];
+    if (transcribedWord) fetches.push(fetchWordIPA(transcribedWord));
+
+    Promise.all(fetches)
+      .then(([passage, transcribed = null]) => {
+        clearTimeout(bail);
+        setData({ passage, transcribed, loading: false });
+      })
+      .catch(() => {
+        clearTimeout(bail);
+        setData({ passage: null, transcribed: null, loading: false });
+      });
+
+    return () => clearTimeout(bail);
   }, [word, transcribedWord]);
 
   return data;
@@ -59,12 +54,10 @@ function usePhonetics(word: string, transcribedWord?: string): PhoneticData {
 
 // LCS-based character diff — returns two aligned arrays
 function diffIPA(a: string, b: string): [DiffChar[], DiffChar[]] {
-  // Strip slashes
-  const sa = a.replace(/^\/|\/$/g, "");
-  const sb = b.replace(/^\/|\/$/g, "");
+  const sa = a.replace(/^\/|\/$/g, "").replace(/[\s.]/g, "");
+  const sb = b.replace(/^\/|\/$/g, "").replace(/[\s.]/g, "");
 
   const m = sa.length, n = sb.length;
-  // Build LCS table
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
@@ -72,7 +65,6 @@ function diffIPA(a: string, b: string): [DiffChar[], DiffChar[]] {
     }
   }
 
-  // Backtrack
   const aChars: DiffChar[] = [];
   const bChars: DiffChar[] = [];
   let i = m, j = n;
@@ -82,12 +74,12 @@ function diffIPA(a: string, b: string): [DiffChar[], DiffChar[]] {
       bChars.unshift({ ch: sb[j - 1], match: true });
       i--; j--;
     } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      aChars.unshift({ ch: "·", match: false }); // gap in passage side
+      aChars.unshift({ ch: "·", match: false });
       bChars.unshift({ ch: sb[j - 1], match: false });
       j--;
     } else {
       aChars.unshift({ ch: sa[i - 1], match: false });
-      bChars.unshift({ ch: "·", match: false }); // gap in transcribed side
+      bChars.unshift({ ch: "·", match: false });
       i--;
     }
   }
@@ -95,13 +87,15 @@ function diffIPA(a: string, b: string): [DiffChar[], DiffChar[]] {
   return [aChars, bChars];
 }
 
+const IPA_FONT = { fontFamily: "var(--font-noto-sans), 'Segoe UI', sans-serif" };
+
 function DiffedIPA({ chars, side }: { chars: DiffChar[]; side: "passage" | "transcribed" }) {
   return (
-    <span className="font-mono tracking-wide">
+    <span className="whitespace-nowrap text-sm" style={IPA_FONT}>
       /
       {chars.map((c, i) => {
         if (c.match) return <span key={i} className="text-yellow-300">{c.ch}</span>;
-        if (c.ch === "·") return <span key={i} className="text-gray-500 opacity-40">·</span>;
+        if (c.ch === "·") return null;
         return (
           <span key={i} className={side === "passage" ? "text-green-300 font-bold" : "text-red-400 font-bold"}>
             {c.ch}
@@ -138,32 +132,29 @@ export function WordTooltip({ word, transcribedWord, onClose, anchorRef, onPlayM
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose, anchorRef]);
 
-  // Compute diff if both IPA available
   const [passageDiff, transcribedDiff] =
     isWrong && passage && transcribed ? diffIPA(passage, transcribed) : [null, null];
 
   return (
     <div
       ref={tooltipRef}
-      className="absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-xl shadow-xl text-sm"
-      style={{ minWidth: isWrong ? "220px" : "140px" }}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-xl shadow-xl text-sm w-max"
     >
       {/* Pointer */}
       <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
 
       {loading ? (
-        <div className="px-4 py-3 text-gray-400 text-xs">Loading phonetics…</div>
+        <div className="px-4 py-3 text-gray-400 text-xs">Đang tải…</div>
       ) : isWrong ? (
-        /* Two-column diff layout */
         <div className="flex divide-x divide-gray-700">
-          {/* Passage word */}
-          <div className="flex flex-col items-center gap-1.5 px-3 py-2.5 flex-1">
-            <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider">Should say</span>
-            <span className="text-white font-medium">{word}</span>
+          <div className="flex flex-col items-center gap-1.5 px-3 py-2.5">
+            <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider whitespace-nowrap">Chuẩn</span>
+            <span className="text-white font-medium whitespace-nowrap">{word}</span>
             {passageDiff ? (
               <DiffedIPA chars={passageDiff} side="passage" />
             ) : (
-              <span className="text-gray-500 italic text-xs">{passage ?? "no phonetic"}</span>
+              <span className="text-gray-500 italic text-xs whitespace-nowrap">{passage ?? "không có IPA"}</span>
             )}
             <button
               onClick={() => speak(word)}
@@ -172,14 +163,13 @@ export function WordTooltip({ word, transcribedWord, onClose, anchorRef, onPlayM
             >🔊</button>
           </div>
 
-          {/* Transcribed word */}
-          <div className="flex flex-col items-center gap-1.5 px-3 py-2.5 flex-1">
-            <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider">You said</span>
-            <span className="text-red-300 font-medium">{transcribedWord}</span>
+          <div className="flex flex-col items-center gap-1.5 px-3 py-2.5">
+            <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider whitespace-nowrap">Bạn nói</span>
+            <span className="text-red-300 font-medium whitespace-nowrap">{transcribedWord}</span>
             {transcribedDiff ? (
               <DiffedIPA chars={transcribedDiff} side="transcribed" />
             ) : (
-              <span className="text-gray-500 italic text-xs">{transcribed ?? "no phonetic"}</span>
+              <span className="text-gray-500 italic text-xs whitespace-nowrap">{transcribed ?? "không có IPA"}</span>
             )}
             <button
               onClick={() => speak(transcribedWord!)}
@@ -189,12 +179,11 @@ export function WordTooltip({ word, transcribedWord, onClose, anchorRef, onPlayM
           </div>
         </div>
       ) : (
-        /* Single-column fallback (correct words or no transcribedWord) */
         <div className="flex items-center gap-2 px-3 py-2.5">
           {passage ? (
-            <span className="font-mono text-yellow-300">{passage}</span>
+            <span className="text-yellow-300 whitespace-nowrap" style={IPA_FONT}>{passage}</span>
           ) : (
-            <span className="text-gray-400 italic text-xs">no phonetic</span>
+            <span className="text-gray-400 italic text-xs">không có IPA</span>
           )}
           <button
             onClick={() => speak(word)}
